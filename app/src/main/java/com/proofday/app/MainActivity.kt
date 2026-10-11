@@ -14,10 +14,13 @@ import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewAssetLoader
 
-const val APP_URL = "https://prismatic-haupia-0c8f49.netlify.app"
+const val APP_URL = "https://appassets.androidplatform.net/assets/index.html"
 const val SYNC_JS = "(function(){function s(){try{Android.sync(localStorage.getItem('proofday_v1')||'{}')}catch(e){}}s();setInterval(s,5000)})();"
 
 class Bridge(private val ctx: Context) {
@@ -44,8 +47,17 @@ class MainActivity : Activity() {
         s.javaScriptEnabled = true
         s.domStorageEnabled = true
         s.mediaPlaybackRequiresUserGesture = false
+
+        val loader = WebViewAssetLoader.Builder()
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+            .build()
+
         web.addJavascriptInterface(Bridge(this), "Android")
         web.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                return loader.shouldInterceptRequest(request.url)
+            }
+
             override fun onPageFinished(view: WebView, url: String) {
                 view.evaluateJavascript(SYNC_JS, null)
             }
