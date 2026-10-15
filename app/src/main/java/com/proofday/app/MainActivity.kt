@@ -28,6 +28,7 @@ import org.json.JSONObject
 
 const val APP_URL = "https://appassets.androidplatform.net/assets/index.html"
 const val SYNC_JS = "(function(){function s(){try{Android.sync(localStorage.getItem('proofday_v1')||'{}')}catch(e){}}s();setInterval(s,5000)})();"
+const val PATCH_JS = "(function(){if(window.__pp)return;window.__pp=1;try{var oa=alarm,os=stop;oa(false);alarm=function(on){if(!on)oa(false)};stop=function(){try{os()}catch(e){}try{Android.stopAlarm()}catch(e){}}}catch(e){}})();"
 const val TEST_JS = "(function(){if(document.getElementById('pdt'))return;var w=document.createElement('div');w.id='pdt';w.style.cssText='position:fixed;top:6px;right:6px;z-index:99999;display:flex;gap:6px';function m(t,f){var b=document.createElement('button');b.textContent=t;b.style.cssText='padding:7px 9px;font-size:11px;border-radius:10px;border:1px solid #cfd4e2;background:#fff;color:#12141D';b.onclick=f;w.appendChild(b)}m('Test alarm',function(){Android.testAlarm()});m('Test now',function(){Android.testNow()});m('Info',function(){Android.info()});document.body.appendChild(w)})();"
 
 class Bridge(private val ctx: Context) {
@@ -35,6 +36,11 @@ class Bridge(private val ctx: Context) {
         Handler(Looper.getMainLooper()).post {
             Toast.makeText(ctx, t, Toast.LENGTH_LONG).show()
         }
+    }
+
+    @JavascriptInterface
+    fun stopAlarm() {
+        ctx.getSystemService(NotificationManager::class.java).cancelAll()
     }
 
     @JavascriptInterface
@@ -53,7 +59,7 @@ class Bridge(private val ctx: Context) {
             val i = Intent(ctx, AlarmReceiver::class.java)
                 .putExtra("id", "test").putExtra("name", "Test now").putExtra("time", "00:00")
             ctx.sendBroadcast(i)
-            toast("Test notification sent.")
+            toast("Test notification sent. Swipe it away to stop the sound.")
         } catch (e: Throwable) {
             toast("ERROR: " + e.javaClass.simpleName + ": " + e.message)
         }
@@ -133,6 +139,7 @@ class MainActivity : Activity() {
             }
 
             override fun onPageFinished(view: WebView, url: String) {
+                view.evaluateJavascript(PATCH_JS, null)
                 view.evaluateJavascript(SYNC_JS, null)
                 view.evaluateJavascript(TEST_JS, null)
             }
@@ -148,7 +155,6 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        getSystemService(NotificationManager::class.java).cancelAll()
         web.evaluateJavascript("try{tick()}catch(e){}", null)
     }
 
