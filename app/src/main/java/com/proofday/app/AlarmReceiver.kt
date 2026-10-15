@@ -27,6 +27,7 @@ class AlarmReceiver : BroadcastReceiver() {
         val id = intent.getStringExtra("id") ?: return
         val name = intent.getStringExtra("name") ?: "Task"
         val time = intent.getStringExtra("time") ?: return
+                if (id == "test") { ring(ctx, id, name); return }
         scheduleOne(ctx, id, name, time, true)
         if (alreadyLogged(ctx, id)) return
         ring(ctx, id, name)
