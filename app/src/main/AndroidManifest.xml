@@ -13,6 +13,7 @@
 
     <application
         android:label="ProofDay"
+        android:icon="@mipmap/ic_launcher"
         android:allowBackup="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
 
