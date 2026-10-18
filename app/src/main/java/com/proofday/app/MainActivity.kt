@@ -3,17 +3,13 @@ package com.proofday.app
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.AlarmManager
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
@@ -22,22 +18,13 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Toast
 import androidx.webkit.WebViewAssetLoader
-import org.json.JSONObject
 
 const val APP_URL = "https://appassets.androidplatform.net/assets/index.html"
 const val SYNC_JS = "(function(){function s(){try{Android.sync(localStorage.getItem('proofday_v1')||'{}')}catch(e){}}s();setInterval(s,5000)})();"
 const val PATCH_JS = "(function(){if(window.__pp)return;window.__pp=1;try{var oa=alarm,os=stop;oa(false);alarm=function(on){if(!on)oa(false)};stop=function(){try{os()}catch(e){}try{Android.stopAlarm()}catch(e){}}}catch(e){}})();"
-const val TEST_JS = "(function(){if(document.getElementById('pdt'))return;var w=document.createElement('div');w.id='pdt';w.style.cssText='position:fixed;top:6px;right:6px;z-index:99999;display:flex;gap:6px';function m(t,f){var b=document.createElement('button');b.textContent=t;b.style.cssText='padding:7px 9px;font-size:11px;border-radius:10px;border:1px solid #cfd4e2;background:#fff;color:#12141D';b.onclick=f;w.appendChild(b)}m('Test alarm',function(){Android.testAlarm()});m('Test now',function(){Android.testNow()});m('Info',function(){Android.info()});document.body.appendChild(w)})();"
 
 class Bridge(private val ctx: Context) {
-    private fun toast(t: String) {
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(ctx, t, Toast.LENGTH_LONG).show()
-        }
-    }
-
     @JavascriptInterface
     fun stopAlarm() {
         ctx.getSystemService(NotificationManager::class.java).cancelAll()
@@ -51,67 +38,6 @@ class Bridge(private val ctx: Context) {
         AlarmReceiver.cancelAll(ctx)
         prefs.edit().putString("tasks", json).apply()
         AlarmReceiver.scheduleAll(ctx)
-    }
-
-    @JavascriptInterface
-    fun testNow() {
-        try {
-            val i = Intent(ctx, AlarmReceiver::class.java)
-                .putExtra("id", "test").putExtra("name", "Test now").putExtra("time", "00:00")
-            ctx.sendBroadcast(i)
-            toast("Test notification sent. Swipe it away to stop the sound.")
-        } catch (e: Throwable) {
-            toast("ERROR: " + e.javaClass.simpleName + ": " + e.message)
-        }
-    }
-
-    @JavascriptInterface
-    fun testAlarm() {
-        toast("Button pressed...")
-        try {
-            val i = Intent(ctx, AlarmReceiver::class.java)
-                .putExtra("id", "test").putExtra("name", "Test alarm").putExtra("time", "00:00")
-            val pi = PendingIntent.getBroadcast(
-                ctx, 777, i, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            val show = PendingIntent.getActivity(
-                ctx, 0, Intent(ctx, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE
-            )
-            ctx.getSystemService(AlarmManager::class.java)
-                .setAlarmClock(AlarmManager.AlarmClockInfo(System.currentTimeMillis() + 20000, show), pi)
-            toast("Alarm set for 20 seconds. Press Home and lock the phone now.")
-        } catch (e: Throwable) {
-            toast("ERROR: " + e.javaClass.simpleName + ": " + e.message)
-        }
-    }
-
-    @JavascriptInterface
-    fun info() {
-        var total = 0
-        var set = 0
-        try {
-            val s = ctx.getSharedPreferences("proofday", Context.MODE_PRIVATE).getString("tasks", null)
-            if (s != null) {
-                val a = JSONObject(s).optJSONArray("tasks")
-                if (a != null) {
-                    total = a.length()
-                    for (k in 0 until a.length()) {
-                        val id = a.getJSONObject(k).getString("id")
-                        val pi = PendingIntent.getBroadcast(
-                            ctx, id.hashCode(), Intent(ctx, AlarmReceiver::class.java),
-                            PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
-                        )
-                        if (pi != null) set++
-                    }
-                }
-            }
-        } catch (e: Exception) {
-        }
-        val nm = ctx.getSystemService(NotificationManager::class.java)
-        val am = ctx.getSystemService(AlarmManager::class.java)
-        val notif = if (nm.areNotificationsEnabled()) "ON" else "OFF"
-        val exact = if (Build.VERSION.SDK_INT >= 31) am.canScheduleExactAlarms().toString() else "n/a"
-        toast("Tasks: $total | Alarms set: $set | Notifications: $notif | Exact: $exact | Android: ${Build.VERSION.SDK_INT}")
     }
 }
 
@@ -141,7 +67,6 @@ class MainActivity : Activity() {
             override fun onPageFinished(view: WebView, url: String) {
                 view.evaluateJavascript(PATCH_JS, null)
                 view.evaluateJavascript(SYNC_JS, null)
-                view.evaluateJavascript(TEST_JS, null)
             }
         }
         web.webChromeClient = object : WebChromeClient() {
